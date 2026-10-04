@@ -29,60 +29,68 @@ async def faq_handler(callback_query: types.CallbackQuery):
         logger.warning("База данных пустая! Отправляем сообщение о пустом FAQ.")
         sent_message = await callback_query.message.answer("❗ В базе данных пока нет вопросов и ответов!")
     else:
-        faq_text = "❓ **Часто задаваемые вопросы**:\n\n" + "\n\n".join(
-            [f"📌 {q.text}" for q in questions]
+        # Создаём клавиатуру с вопросами
+        keyboard = types.InlineKeyboardMarkup(inline_keyboard=[
+            [types.InlineKeyboardButton(text=q.text, callback_data=f"faq_answer_{q.id}")]
+            for q in questions
+        ])
+        
+        # Добавляем кнопку "🏠 Главное меню"
+        keyboard.inline_keyboard.append([types.InlineKeyboardButton(text="🏠 Главное меню", callback_data="start")])
+        
+        sent_message = await callback_query.message.answer(
+            "❓ **Часто задаваемые вопросы**:\n\nВыберите вопрос, чтобы увидеть ответ:",
+            reply_markup=keyboard
         )
-        sent_message = await callback_query.message.answer(faq_text)
 
     # Сохраняем ID последнего отправленного сообщения
     await save_last_message(user_id, sent_message)
 
     logger.info(f"Отправлено сообщение с FAQ пользователю {user_id}")
 
-@router.inline_query()
-async def faq_inline_query(query: types.InlineQuery):
+@router.callback_query(lambda callback_query: callback_query.data.startswith("faq_answer_"))
+async def faq_answer_handler(callback_query: types.CallbackQuery):
     """
-    Обработчик инлайн-запросов для FAQ.
-    Автоматически дополняет вопросы и показывает ответы.
+    Обработчик кнопки с вопросом FAQ.
+    Показывает ответ на выбранный вопрос.
     """
-    user_id = query.from_user.id
-    logger.info(f"Получен инлайн-запрос: {query.query} от {query.from_user.id}")
+    user_id = callback_query.from_user.id
+    question_id = int(callback_query.data.split("_")[-1])
+    logger.info(f"Пользователь {user_id} выбрал вопрос {question_id}")
 
     # Удаляем предыдущее сообщение, если оно есть
-    await delete_previous_message(query.bot, user_id)
+    await delete_previous_message(callback_query.message.bot, user_id)
 
-    user_query = query.query.lower().strip()  # Убираем пробелы и приводим к нижнему регистру
+    # Объявляем переменную sent_message
+    sent_message = None  
+
     questions = await get_questions()
-    logger.info(f"Всего загружено {len(questions)} вопросов из БД")
+    question = next((q for q in questions if q.id == question_id), None)
 
-    # Фильтруем вопросы по пользовательскому запросу
-    results = [
-        types.InlineQueryResultArticle(
-            id=str(q.id),
-            title=q.text,
-            # input_message_content=types.InputTextMessageContent(message_text=f"❓ *{q.text}*\n\n{q.answer}"),
-            input_message_content=types.InputTextMessageContent(
-                message_text=f"❓ *{q.text}*\n\n{q.answer}",
-                parse_mode="Markdown"
-            ),
-            description=q.answer[:50],  # Показываем превью ответа
-            reply_markup=types.InlineKeyboardMarkup(inline_keyboard=[
-                [types.InlineKeyboardButton(text="🔍 Другой вопрос", switch_inline_query_current_chat="")],
-                [types.InlineKeyboardButton(text="🏠 Главное меню", callback_data="start")]
-            ])
+    if not question:
+        sent_message = await callback_query.message.answer("❌ Вопрос не найден.")
+    else:
+        # Клавиатура с кнопкой возврата к FAQ
+        keyboard = types.InlineKeyboardMarkup(inline_keyboard=[
+            [types.InlineKeyboardButton(text="❓ Назад к FAQ", callback_data="faq")],
+            [types.InlineKeyboardButton(text="🏠 Главное меню", callback_data="start")]
+        ])
+        
+        sent_message = await callback_query.message.answer(
+            f"❓ **{question.text}**\n\n{question.answer}",
+            reply_markup=keyboard
         )
-        for q in questions if user_query in q.text.lower() or q.text.lower().startswith(user_query)
-    ]
 
-    await query.answer(results, cache_time=0)
+    # Сохраняем ID последнего отправленного сообщения
+    await save_last_message(user_id, sent_message)
 
-    logger.info(f"Инлайн-ответ отправлен пользователю {user_id}")
+    logger.info(f"Отправлен ответ на вопрос {question_id} пользователю {user_id}")
 
 @router.message(Command("faq"))
 async def faq_command_handler(message: types.Message):
     """
     Обработчик команды /faq.
-    Запускает инлайн-режим FAQ так же, как кнопка "❓ FAQ".
+    Показывает список вопросов FAQ.
     """
     user_id = message.from_user.id
 
@@ -92,17 +100,27 @@ async def faq_command_handler(message: types.Message):
     # Объявляем переменную sent_message
     sent_message = None  
 
-    bot_username = (await message.bot.get_me()).username  # Получаем имя бота
-    switch_inline_query = f"@{bot_username} "  # Подставляем инлайн-запрос в поле ввода
+    questions = await get_questions()
+    logger.info(f"Загружено {len(questions)} вопросов из БД")
 
-    keyboard = types.InlineKeyboardMarkup(inline_keyboard=[
-        [types.InlineKeyboardButton(text="🔍 Открыть FAQ", switch_inline_query_current_chat="")]
-    ])
-
-    sent_message = await message.answer(
-        f"🔍 Введите ваш вопрос после @{bot_username}, чтобы получить ответ из FAQ.",
-        reply_markup=keyboard
-    )
+    if not questions:
+        sent_message = await message.answer("❗ В базе данных пока нет вопросов и ответов!")
+    else:
+        # Создаём клавиатуру с вопросами
+        keyboard = types.InlineKeyboardMarkup(inline_keyboard=[
+            [types.InlineKeyboardButton(text=q.text, callback_data=f"faq_answer_{q.id}")]
+            for q in questions
+        ])
+        
+        # Добавляем кнопку "🏠 Главное меню"
+        keyboard.inline_keyboard.append([types.InlineKeyboardButton(text="🏠 Главное меню", callback_data="start")])
+        
+        sent_message = await message.answer(
+            "❓ **Часто задаваемые вопросы**:\n\nВыберите вопрос, чтобы увидеть ответ:",
+            reply_markup=keyboard
+        )
 
     # Сохраняем ID последнего отправленного сообщения
     await save_last_message(user_id, sent_message)
+
+    logger.info(f"Отправлено сообщение с FAQ пользователю {user_id}")
