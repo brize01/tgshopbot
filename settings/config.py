@@ -14,4 +14,4 @@ SUBCATEGORIES_PER_PAGE = 3  # Число подкатегорий на одно�
 
 # Настройка вывода товаров
 PRODUCTS_PER_PAGE = 3  # Количество товаров на одной странице
-MEDIA_URL = "http://yourserver.com/media/"  # URL доступа к файлам media из Django для вывода изображений товаров
+MEDIA_URL = "https://tgshopadmin-production.up.railway.app/media/"
