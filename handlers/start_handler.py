@@ -58,7 +58,7 @@ async def send_main_menu(bot, user_id, first_name):
     keyboard = types.InlineKeyboardMarkup(inline_keyboard=[
         [types.InlineKeyboardButton(text="📦 Каталог", callback_data="category_page_1")],
         [types.InlineKeyboardButton(text="🛒 Корзина", callback_data="view_cart")],
-        [types.InlineKeyboardButton(text="❓ FAQ", switch_inline_query_current_chat="")]
+        [types.InlineKeyboardButton(text="❓ FAQ", callback_data="faq")]
     ])
 
     if is_subscribed:
