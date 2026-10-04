@@ -2,11 +2,10 @@ import logging
 from aiogram import Router, types
 from sqlalchemy.future import select
 from sqlalchemy.sql import func
-from helpers.database import get_products
+from helpers.database import get_products, get_subcategories, async_session_maker
 from helpers.message_manager import delete_previous_message, delete_all_previous_messages, save_last_message
-from helpers.database import async_session_maker
-from settings.config import PRODUCTS_PER_PAGE
-from helpers.models import Product
+from helpers.models import Product, SubCategory
+from settings.config import PRODUCTS_PER_PAGE, SUBCATEGORIES_PER_PAGE
 
 logger = logging.getLogger(__name__)
 router = Router()
@@ -53,7 +52,7 @@ async def product_handler(callback_query: types.CallbackQuery):
 
         sent_message = await callback_query.message.answer("❌ Нет товаров в этой подкатегории.", reply_markup=main_menu_keyboard)
         
-        # Сохраняем ID последнего отправленного сообщения
+        # Сохраняем ID последнего отправленного 消息
         await save_last_message(user_id, sent_message)
         
         return
@@ -75,9 +74,9 @@ async def product_handler(callback_query: types.CallbackQuery):
             parse_mode="Markdown"
         )
 
-        await save_last_message(user_id, sent_message)  # Сохраняем ID каждого сообщения
+        await save_last_message(user_id, sent_message)  # Сохраняем ID каждого 消息
 
-        # Добавляем навигацию
+    # Добавляем навигацию
     navigation_keyboard = types.InlineKeyboardMarkup(inline_keyboard=[])
     
     # Кнопка "Назад к подкатегориям"
@@ -94,6 +93,7 @@ async def product_handler(callback_query: types.CallbackQuery):
     
     if pagination_buttons:
         navigation_keyboard.inline_keyboard.append(pagination_buttons)
+
     # Вычисляем количество страниц
     total_pages = (total_products + PRODUCTS_PER_PAGE - 1) // PRODUCTS_PER_PAGE
     navigation_text = f"Всего товаров в подкатегории: {total_products}\nСтраница {page} из {total_pages}"
@@ -104,6 +104,7 @@ async def product_handler(callback_query: types.CallbackQuery):
         await save_last_message(user_id, sent_message)  # Сохраняем навигацию
 
     logger.info(f"Все товары успешно загружены для пользователя {user_id}")
+
 @router.callback_query(lambda callback_query: callback_query.data.startswith("back_to_subcategories_"))
 async def back_to_subcategories_handler(callback_query: types.CallbackQuery):
     """
@@ -117,7 +118,6 @@ async def back_to_subcategories_handler(callback_query: types.CallbackQuery):
     
     # Получаем category_id по subcategory_id
     async with async_session_maker() as session:
-        from helpers.models import SubCategory
         result = await session.execute(
             select(SubCategory).where(SubCategory.id == subcategory_id)
         )
@@ -129,7 +129,7 @@ async def back_to_subcategories_handler(callback_query: types.CallbackQuery):
         
         category_id = subcategory.category_id
     
-    # Удаляем предыдущие сообщения
+    # Удаляем предыдущие 消息
     await delete_all_previous_messages(callback_query.message.bot, user_id)
     
     # Показываем подкатегории
@@ -142,10 +142,11 @@ async def back_to_subcategories_handler(callback_query: types.CallbackQuery):
     ])
     
     # Кнопка "Назад к категориям"
-    keyboard.inline_keyboard.append([types.InlineKeyboardButton(text="⬅️ Назад к категориям", callback_data=f"category_page_1")])
+    keyboard.inline_keyboard.append([types.InlineKeyboardButton(text="⬅️ Назад к категориям", callback_data="category_page_1")])
     
     sent_message = await callback_query.message.answer("Выбери подкатегорию 👇", reply_markup=keyboard)
     await save_last_message(user_id, sent_message)
+
 async def count_products_in_subcategory(subcategory_id):
     """Возвращает общее количество товаров в подкатегории."""
     from helpers.database import async_session_maker
