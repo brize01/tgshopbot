@@ -54,7 +54,7 @@ async def send_main_menu(bot, user_id, first_name):
     """
     await delete_previous_message(bot, user_id)
 
-    is_subscribed = await check_subscription(user_id)
+    is_subscribed = True  # Временно отключена проверка подписки
     keyboard = types.InlineKeyboardMarkup(inline_keyboard=[
         [types.InlineKeyboardButton(text="📦 Каталог", callback_data="category_page_1")],
         [types.InlineKeyboardButton(text="🛒 Корзина", callback_data="view_cart")],
