@@ -46,7 +46,7 @@ async def subcategory_handler(callback_query: types.CallbackQuery):
 
         sent_message = await callback_query.message.answer("❌ Нет подкатегорий в этой категории.", reply_markup=main_menu_keyboard)
 
-        # Сохраняем ID последнего отправленного сообщения
+        # Сохраняем ID последнего отправленного 消息
         await save_last_message(user_id, sent_message)
 
         return
@@ -56,7 +56,7 @@ async def subcategory_handler(callback_query: types.CallbackQuery):
         for sub in subcategories
     ])
 
-        # Кнопка "Назад к категориям"
+    # Кнопка "Назад к категориям"
     keyboard.inline_keyboard.append([types.InlineKeyboardButton(text="⬅️ Назад к категориям", callback_data="category_page_1")])
     
     # Кнопки пагинации
