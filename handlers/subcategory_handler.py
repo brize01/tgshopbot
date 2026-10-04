@@ -56,6 +56,10 @@ async def subcategory_handler(callback_query: types.CallbackQuery):
         for sub in subcategories
     ])
 
+        # Кнопка "Назад к категориям"
+    keyboard.inline_keyboard.append([types.InlineKeyboardButton(text="⬅️ Назад к категориям", callback_data="category_page_1")])
+    
+    # Кнопки пагинации
     navigation_buttons = []
     if page > 1:
         navigation_buttons.append(types.InlineKeyboardButton(text="⬅️ Назад", callback_data=f"subcategory_page_{category_id}_{page - 1}"))
