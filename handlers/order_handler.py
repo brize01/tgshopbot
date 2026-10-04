@@ -138,7 +138,7 @@ async def confirm_order_handler(message: types.Message):
     logger.info(f"`order_sessions[{user_id}]` Данные `order_sessions` удалены успешно!")
 
     # Запускаем проверку статуса платежа
-    await check_payment_status(message.bot, payment_id, user_id, total_amount)
+    
 
 async def check_payment_status(bot, payment_id, user_id, total_amount):
     """
