@@ -77,16 +77,23 @@ async def product_handler(callback_query: types.CallbackQuery):
 
         await save_last_message(user_id, sent_message)  # Сохраняем ID каждого сообщения
 
-    # Добавляем навигацию "➡️ Вперёд", если есть еще товары
+        # Добавляем навигацию
     navigation_keyboard = types.InlineKeyboardMarkup(inline_keyboard=[])
     
+    # Кнопка "Назад к подкатегориям"
+    navigation_keyboard.inline_keyboard.append([types.InlineKeyboardButton(text="⬅️ Назад к подкатегориям", callback_data=f"back_to_subcategories_{subcategory_id}")])
+    
+    # Кнопки пагинации
+    pagination_buttons = []
     if page > 1:
-        navigation_keyboard.inline_keyboard.append([types.InlineKeyboardButton(text="⬅️ Назад", callback_data=f"product_page_{subcategory_id}_{page - 1}")])
+        pagination_buttons.append(types.InlineKeyboardButton(text="⬅️ Назад", callback_data=f"product_page_{subcategory_id}_{page - 1}"))
     
     next_page_start = page * PRODUCTS_PER_PAGE
-    if next_page_start < total_products:  # Проверяем, останутся ли ещё товары!
-        navigation_keyboard.inline_keyboard.append([types.InlineKeyboardButton(text="➡️ Вперёд", callback_data=f"product_page_{subcategory_id}_{page + 1}")])
-
+    if next_page_start < total_products:
+        pagination_buttons.append(types.InlineKeyboardButton(text="➡️ Вперёд", callback_data=f"product_page_{subcategory_id}_{page + 1}"))
+    
+    if pagination_buttons:
+        navigation_keyboard.inline_keyboard.append(pagination_buttons)
     # Вычисляем количество страниц
     total_pages = (total_products + PRODUCTS_PER_PAGE - 1) // PRODUCTS_PER_PAGE
     navigation_text = f"Всего товаров в подкатегории: {total_products}\nСтраница {page} из {total_pages}"
@@ -97,7 +104,48 @@ async def product_handler(callback_query: types.CallbackQuery):
         await save_last_message(user_id, sent_message)  # Сохраняем навигацию
 
     logger.info(f"Все товары успешно загружены для пользователя {user_id}")
-
+@router.callback_query(lambda callback_query: callback_query.data.startswith("back_to_subcategories_"))
+async def back_to_subcategories_handler(callback_query: types.CallbackQuery):
+    """
+    Обработчик кнопки "Назад к подкатегориям".
+    Возвращает к списку подкатегорий.
+    """
+    user_id = callback_query.from_user.id
+    subcategory_id = int(callback_query.data.split("_")[-1])
+    
+    logger.info(f"Пользователь {user_id} возвращается к подкатегориям из подкатегории {subcategory_id}")
+    
+    # Получаем category_id по subcategory_id
+    async with async_session_maker() as session:
+        from helpers.models import SubCategory
+        result = await session.execute(
+            select(SubCategory).where(SubCategory.id == subcategory_id)
+        )
+        subcategory = result.scalar()
+        
+        if not subcategory:
+            await callback_query.message.answer("❌ Подкатегория не найдена.")
+            return
+        
+        category_id = subcategory.category_id
+    
+    # Удаляем предыдущие сообщения
+    await delete_all_previous_messages(callback_query.message.bot, user_id)
+    
+    # Показываем подкатегории
+    offset = 0
+    subcategories = await get_subcategories(category_id, limit=SUBCATEGORIES_PER_PAGE, offset=offset)
+    
+    keyboard = types.InlineKeyboardMarkup(inline_keyboard=[
+        [types.InlineKeyboardButton(text=sub.name, callback_data=f"subcategory_{sub.id}")]
+        for sub in subcategories
+    ])
+    
+    # Кнопка "Назад к категориям"
+    keyboard.inline_keyboard.append([types.InlineKeyboardButton(text="⬅️ Назад к категориям", callback_data=f"category_page_1")])
+    
+    sent_message = await callback_query.message.answer("Выбери подкатегорию 👇", reply_markup=keyboard)
+    await save_last_message(user_id, sent_message)
 async def count_products_in_subcategory(subcategory_id):
     """Возвращает общее количество товаров в подкатегории."""
     from helpers.database import async_session_maker
