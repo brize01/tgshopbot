@@ -39,7 +39,7 @@ async def faq_handler(callback_query: types.CallbackQuery):
         keyboard.inline_keyboard.append([types.InlineKeyboardButton(text="🏠 Главное меню", callback_data="start")])
         
         sent_message = await callback_query.message.answer(
-            "❓ **Часто задаваемые вопросы**:\n\nВыберите вопрос, чтобы увидеть ответ:",
+            "❓ Часто задаваемые вопросы:\n\nВыберите вопрос, чтобы увидеть ответ:",
             reply_markup=keyboard
         )
 
@@ -77,7 +77,7 @@ async def faq_answer_handler(callback_query: types.CallbackQuery):
         ])
         
         sent_message = await callback_query.message.answer(
-            f"❓ **{question.text}**\n\n{question.answer}",
+            f"❓ {question.text}\n\n{question.answer}",
             reply_markup=keyboard
         )
 
@@ -116,11 +116,11 @@ async def faq_command_handler(message: types.Message):
         keyboard.inline_keyboard.append([types.InlineKeyboardButton(text="🏠 Главное меню", callback_data="start")])
         
         sent_message = await message.answer(
-            "❓ **Часто задаваемые вопросы**:\n\nВыберите вопрос, чтобы увидеть ответ:",
+            "❓ Часто задаваемые вопросы:\n\nВыберите вопрос, чтобы увидеть ответ:",
             reply_markup=keyboard
         )
 
-    # Сохраняем ID последнего отправленного сообщения
+    # Сохраняем ID последнего отправленного 消息
     await save_last_message(user_id, sent_message)
 
     logger.info(f"Отправлено сообщение с FAQ пользователю {user_id}")
